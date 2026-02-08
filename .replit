@@ -37,3 +37,9 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.shared]
+7109b73a095d4ca5ace0cc29a3485a82 = "7109b73a095d4ca5ace0cc29a3485a82"
+NEWS_API = "7109b73a095d4ca5ace0cc29a3485a82"
