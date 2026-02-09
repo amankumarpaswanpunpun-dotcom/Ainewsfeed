@@ -1,0 +1,63 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const multer = require('multer');
+const axios = require('axios');
+const path = require('path');
+
+const app = express();
+const API_KEY = '7109b73a095d4ca5ace0cc29a3485a82';
+
+// DATABASE CONNECTION
+mongoose.connect('mongodb://localhost:27017/globalViralNews');
+
+// 1. FIX LOGIN PROBLEM: Permanent Session (30 Days)
+app.use(session({
+    secret: 'viral_world_key_2026',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({ mongoUrl: 'mongodb://localhost:27017/globalViralNews' }),
+    cookie: { 
+        maxAge: 1000 * 60 * 60 * 24 * 30, // Stay logged in for 30 days
+        secure: false, // Set to true if using HTTPS
+        httpOnly: true 
+    }
+}));
+
+// 2. IMAGE UPLOAD CONFIGURATION
+const storage = multer.diskStorage({
+    destination: './public/uploads/',
+    filename: (req, file, cb) => {
+        cb(null, 'NEWS-' + Date.now() + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
+
+// 3. AUTOMATIC NEWS ENGINE (Fetching 100+ articles)
+async function fetchGlobalNews() {
+    try {
+        const url = `https://newsapi.org/v2/top-headlines?language=en&pageSize=100&apiKey=${API_KEY}`;
+        const response = await axios.get(url);
+        console.log(`Success: ${response.data.articles.length} news articles synced.`);
+        // Logic to save 'response.data.articles' to your Database goes here
+    } catch (error) {
+        console.error("Automation Error:", error.message);
+    }
+}
+
+// Auto-run every 60 minutes
+setInterval(fetchGlobalNews, 3600000);
+
+// 4. USER ARTICLE SUBMISSION ROUTE
+app.post('/api/publish', upload.single('newsImage'), (req, res) => {
+    if(!req.session.userId) return res.status(401).send("Please Login First");
+    
+    const { title, description } = req.body;
+    const image = req.file ? req.file.filename : 'default.jpg';
+    
+    // Save to DB logic...
+    res.json({ status: "Success", message: "Article is now Live Globally!" });
+});
+
+app.listen(80, () => console.log('Global News Server is active on Port 80'));
