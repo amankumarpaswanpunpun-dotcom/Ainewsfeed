@@ -26,7 +26,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createPost(post: InsertPost): Promise<Post> {
+  async createPost(post: InsertPost & { imageUrl?: string }): Promise<Post> {
     const [newPost] = await db.insert(posts).values(post).returning();
     return newPost;
   }

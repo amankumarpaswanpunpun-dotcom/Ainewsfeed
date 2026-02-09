@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
@@ -13,10 +13,33 @@ import { pool } from "./db";
 
 const pgSession = connectPgSimple(session);
 
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Ensure uploads directory exists
+const uploadDir = path.join(process.cwd(), "public/uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage_multer = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "public/uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, "NEWS-" + Date.now() + path.extname(file.originalname));
+  },
+});
+const upload = multer({ storage: storage_multer });
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Serve uploaded files statically
+  app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
+
   // --- Auth Setup ---
   app.use(
     session({
@@ -114,19 +137,22 @@ export async function registerRoutes(
   });
 
   // --- Post Routes ---
-  app.post(api.posts.create.path, async (req, res) => {
+  app.post(api.posts.create.path, upload.single("image"), async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ msg: "Unauthorized" });
     try {
-      // In a real app, author would be ID, but adhering to user's schema where it is a string name
-      const input = api.posts.create.input.parse(req.body);
-      const post = await storage.createPost(input);
+      const { title, content, author } = req.body;
+      const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+      
+      const post = await storage.createPost({ 
+        title, 
+        content, 
+        author, 
+        imageUrl 
+      });
       res.status(201).json(post);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ message: err.errors[0].message });
-      } else {
-        res.status(500).json({ message: "Internal Server Error" });
-      }
+      console.error("Post creation error:", err);
+      res.status(500).json({ message: "Internal Server Error" });
     }
   });
 

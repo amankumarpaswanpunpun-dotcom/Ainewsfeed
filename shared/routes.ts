@@ -22,7 +22,9 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/posts' as const,
-      input: insertPostSchema,
+      input: insertPostSchema.extend({
+        imageUrl: z.string().optional(),
+      }),
       responses: {
         201: z.custom<typeof posts.$inferSelect>(),
         400: errorSchemas.validation,
